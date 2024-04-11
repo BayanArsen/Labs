@@ -1,234 +1,134 @@
 import pygame
 import random
-
+# Initialize pygame
 pygame.init()
 
-W, H = 1200, 800
-FPS = 60
+# Set up screen
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+GRID_SIZE = 20
+GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
+GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('Snake Game')
+font_small = pygame.font.SysFont("Verdana", 20)
+speed = 1
+score = 1
 
-screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
-clock = pygame.time.Clock()
-done = False
-bg = (0, 0, 0)
+TIME_LIMIT = pygame.USEREVENT + 1
+pygame.time.set_timer(TIME_LIMIT, 5000)
 
-# paddle
-paddleW = 150
-paddleH = 25
-paddleSpeed = 20
-paddle = pygame.Rect(W // 2 - paddleW // 2, H - paddleH - 30, paddleW, paddleH)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
 
-# Ball
-ballRadius = 20
-ballSpeed = 6
-ball_rect = int(ballRadius * 2 ** 0.5)
-ball = pygame.Rect(random.randrange(ball_rect, W - ball_rect), H // 2, ball_rect, ball_rect)
-dx, dy = 1, -1
+# Directions
+UP = (0, -1)
+DOWN = (0, 1)
+LEFT = (-1, 0)
+RIGHT = (1, 0)
 
-# Game score
-game_score = 0
-game_score_fonts = pygame.font.SysFont('comicsansms', 40)
-game_score_text = game_score_fonts.render(f'Your game score is: {game_score}', True, (0, 0, 0))
-game_score_rect = game_score_text.get_rect()
-game_score_rect.center = (210, 20)
+# Snake class
+class Snake:
+    def __init__(self):
+        self.length = 1
+        self.positions = [((SCREEN_WIDTH / 2), (SCREEN_HEIGHT / 2))]
+        self.direction = random.choice([UP, DOWN, LEFT, RIGHT])
+        self.color = GREEN
 
-# Catching sound
-collision_sound = pygame.mixer.Sound('media/catch.mp3')
+    def get_head_position(self):
+        return self.positions[0]
 
-# Time variables
-time_elapsed = 0
-speed_increase_interval = 1000  # Increase speed every 1 seconds (in milliseconds)
-speed_increase_amount = 0.2  # Amount by which speed increases
-shrink_paddle_interval = 5000  # Shrink paddle every 5 seconds (in milliseconds)
-shrink_paddle_amount = 10
+    def move(self):
+        global speed, score
+        cur = self.get_head_position()
+        x, y = self.direction
+        new = (((cur[0] + (x * GRID_SIZE)) % SCREEN_WIDTH), (cur[1] + (y * GRID_SIZE)) % SCREEN_HEIGHT)
+        if len(self.positions) > 2 and new in self.positions[2:]:
+            self.reset()
+            speed=1
+            score=1
+        else:
+            self.positions.insert(0, new)
+            if len(self.positions) > self.length:
+                self.positions.pop()
 
-# Pause state
-is_paused = False
+    def reset(self):
+        self.length = 1
+        self.positions = [((SCREEN_WIDTH / 2), (SCREEN_HEIGHT / 2))]
+        self.direction = random.choice([UP, DOWN, LEFT, RIGHT])
 
-
-def detect_collision(dx, dy, ball, rect):
-    if dx > 0:
-        delta_x = ball.right - rect.left
-    else:
-        delta_x = rect.right - ball.left
-    if dy > 0:
-        delta_y = ball.bottom - rect.top
-    else:
-        delta_y = rect.bottom - ball.top
-
-    if abs(delta_x - delta_y) < 10:
-        dx, dy = -dx, -dy
-    elif delta_x > delta_y:
-        dy = -dy
-    elif delta_y > delta_x:
-        dx = -dx
-    return dx, dy
+    def draw(self, surface):
+        for p in self.positions:
+            r = pygame.Rect((p[0], p[1]), (GRID_SIZE, GRID_SIZE))
+            pygame.draw.rect(surface, self.color, r)
+            pygame.draw.rect(surface, WHITE, r, 1)
 
 
-# block settings
-block_list = [pygame.Rect(10 + 120 * i, 50 + 70 * j,
-                          100, 50) for i in range(10) for j in range(4)]
-color_list = [(random.randrange(0, 255),
-               random.randrange(0, 255), random.randrange(0, 255))
-              for i in range(10) for j in range(4)]
+# Food class
+class Food:
+    def __init__(self):
+        self.position = (0, 0)
+        self.color = RED
+        self.randomize_position()
 
-# Randomly choose unbreakable blocks
-unbreakable_block_list = []
-for _ in range(5):  # Number of unbreakable blocks
-    random_index = random.randint(0, len(block_list) - 1)
-    unbreakable_block_list.append(block_list.pop(random_index))
+    def randomize_position(self):
+        self.position = (random.randint(0, GRID_WIDTH - 1) * GRID_SIZE, random.randint(0, GRID_HEIGHT - 1) * GRID_SIZE)
 
-unbreakable_color_list = [(0, 0, 255) for _ in range(len(unbreakable_block_list))]
+    def draw(self, surface):
+        r = pygame.Rect((self.position[0], self.position[1]), (GRID_SIZE, GRID_SIZE))
+        pygame.draw.rect(surface, self.color, r)
+        pygame.draw.rect(surface, WHITE, r, 1)
 
-bonus_brick_types = {
-    "longer_paddle": {"color": (0, 255, 0), "perk": "paddle", "message": "Longer paddle!"},
-    "increase_speed": {"color": (255, 165, 0), "perk": "speed", "message": "Speed Up!"},
-}
 
-bonus_brick_list = []
-for _ in range(5):  # Number of bonus bricks
-    random_index = random.randint(0, len(block_list) - 1)
-    bonus_brick_type = random.choice(list(bonus_brick_types.keys()))
-    bonus_brick_list.append((block_list.pop(random_index), bonus_brick_type))
+# Main function
+def main():
+    snake = Snake()
+    food = Food()
+    clock = pygame.time.Clock()
 
-# Game over Screen
-losefont = pygame.font.SysFont('comicsansms', 40)
-losetext = losefont.render('Game Over', True, (255, 255, 255))
-losetextRect = losetext.get_rect()
-losetextRect.center = (W // 2, H // 2)
-
-# Win Screen
-winfont = pygame.font.SysFont('comicsansms', 40)
-wintext = winfont.render('You win yay', True, (0, 0, 0))
-wintextRect = wintext.get_rect()
-wintextRect.center = (W // 2, H // 2)
-
-# Message variables
-message_font = pygame.font.SysFont('comicsansms', 40)
-last_message = ""  # Stores the last message
-last_message_rect = None  # Stores the last message's rect
-
-while not done:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p:  # Toggle pause
-                is_paused = not is_paused
-            if is_paused:
-                if event.key == pygame.K_w:
-                    paddleW += 10
-                    paddle = pygame.Rect(paddle.left, paddle.top, paddleW, paddleH)  # Adjust paddle size
-                if event.key == pygame.K_s and paddleW > 10:
-                    paddleW -= 10
-                    paddle = pygame.Rect(paddle.left, paddle.top, paddleW, paddleH)  # Adjust paddle size
-                if event.key == pygame.K_d:
-                    ballRadius += 1
-                if event.key == pygame.K_a and ballRadius > 1:
-                    ballRadius -= 1
-
-    if is_paused:
-        screen.fill((100, 100, 100))
-        pause_text = game_score_fonts.render('Game Paused. Press P to resume.', True, (255, 255, 255))
-        settings_text_1 = game_score_fonts.render(
-            f'Paddle Width: {paddleW}, Ball Radius: {ballRadius}.', True,
-            (255, 255, 255))
-        settings_text_2 = game_score_fonts.render(
-            'W/S: Adjust paddle. D/A: Adjust ball.', True,
-            (255, 255, 255))
-
-        screen.blit(pause_text, (W / 2 - pause_text.get_width() / 2, H / 2 - pause_text.get_height() / 2 - 20))
-        screen.blit(settings_text_1, (W / 2 - settings_text_1.get_width() / 2, H / 2 + 20))
-        screen.blit(settings_text_2, (W / 2 - settings_text_2.get_width() / 2, H / 2 + 80))
-
-        pygame.display.flip()
-        continue
-
-    screen.fill(bg)
-
-    [pygame.draw.rect(screen, color_list[color], block) for color, block in enumerate(block_list)]  # drawing blocks
-    [pygame.draw.rect(screen, (0, 0, 255), block) for block in unbreakable_block_list]  # drawing unbreakable blocks
-
-    pygame.draw.rect(screen, pygame.Color(255, 255, 255), paddle)
-    pygame.draw.circle(screen, pygame.Color(255, 0, 0), ball.center, ballRadius)
-
-    ball.x += ballSpeed * dx
-    ball.y += ballSpeed * dy
-
-    if ball.centerx < ballRadius or ball.centerx > W - ballRadius:
-        dx = -dx
-    if ball.centery < ballRadius + 50:
-        dy = -dy
-    if ball.colliderect(paddle) and dy > 0:
-        dx, dy = detect_collision(dx, dy, ball, paddle)
-
-    hitIndex = ball.collidelist(block_list)
-
-    if hitIndex != -1:
-        hitRect = block_list.pop(hitIndex)
-        hitColor = color_list.pop(hitIndex)
-        dx, dy = detect_collision(dx, dy, ball, hitRect)
-        game_score += 1
-        collision_sound.play()
-
-    # Check collision with unbreakable blocks
-    for i, unbreakable_block in enumerate(unbreakable_block_list):
-        if ball.colliderect(unbreakable_block):
-            dx, dy = detect_collision(dx, dy, ball, unbreakable_block)
-
-    for block, bonus_type in bonus_brick_list:
-        pygame.draw.rect(screen, bonus_brick_types[bonus_type]["color"], block)
-
-    # Collision detection for bonus bricks
-    for i, (bonus_brick, bonus_type) in enumerate(bonus_brick_list):
-        if ball.colliderect(bonus_brick):
-            # Apply perk of the bonus brick
-            if bonus_brick_types[bonus_type]["perk"] == "speed":
-                ballSpeed += 2  # Example increase in speed
-
-            # Update last message
-            last_message = bonus_brick_types[bonus_type]["message"]
-            last_message_surface = message_font.render(last_message, True, (255, 255, 255))
-            last_message_rect = last_message_surface.get_rect(topright=(W - 10, -10))  # Adjust position
-
-            # Remove the bonus brick from the list
-            del bonus_brick_list[i]
-            break
-
-    # Display last message
-    if last_message:
-        screen.blit(last_message_surface, last_message_rect)
-
-    game_score_text = game_score_fonts.render(f'Your game score is: {game_score}', True, (255, 255, 255))
-    screen.blit(game_score_text, game_score_rect)
-
-    if ball.bottom > H:
+    while True:
+        global speed, score
         screen.fill((0, 0, 0))
-        screen.blit(losetext, losetextRect)
-    elif not len(block_list):
-        screen.fill((255, 255, 255))
-        screen.blit(wintext, wintextRect)
-        pygame.display.flip()
-        continue
+        # snake.handle_keys()
+        snake.move()
+        total_score = random.randint(1, 3)
 
-    # Increase ball speed over time
-    time_elapsed += clock.get_rawtime()
-    if time_elapsed >= speed_increase_interval:
-        ballSpeed += speed_increase_amount
-        time_elapsed = 0
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()                
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    snake.direction = UP
+                elif event.key == pygame.K_DOWN:
+                    snake.direction = DOWN
+                elif event.key == pygame.K_LEFT:
+                    snake.direction = LEFT
+                elif event.key == pygame.K_RIGHT:
+                    snake.direction = RIGHT
+            if event.type == TIME_LIMIT:
+                food.randomize_position()
 
-    # Shrink paddle over time
-    if time_elapsed >= shrink_paddle_interval:
-        paddleW -= shrink_paddle_amount
-        if paddleW < 50:  # Limit the minimum width of the paddle
-            paddleW = 50
-        paddle.width = paddleW
-        time_elapsed = 0
 
-    key = pygame.key.get_pressed()
-    if key[pygame.K_LEFT] and paddle.left > 0:
-        paddle.left -= paddleSpeed
-    if key[pygame.K_RIGHT] and paddle.right < W:
-        paddle.right += paddleSpeed
+        # Check for collision with food
+        if snake.get_head_position() == food.position:
+            snake.length += total_score
+            score += total_score
+            food.randomize_position()
 
-    pygame.display.flip()
-    clock.tick(FPS)
+            # Increase speed after certain score
+            if score % 4 == 0:
+                speed += 4
+                snake.color = random.choice([GREEN, (0,255,255), (255,255,0)]) # Change snake color
+                clock.tick(8 + speed) # Increase speed
+
+        scores = font_small.render(str(score), True, "white")
+        screen.blit(scores, (SCREEN_WIDTH-25, 10))
+        snake.draw(screen)
+        food.draw(screen)
+        pygame.display.update()
+        clock.tick(8 + speed)
+
+
+if __name__ == '__main__':
+    main()
