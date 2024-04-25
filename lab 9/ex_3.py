@@ -96,7 +96,7 @@ def draw_menu(color):
     pygame.draw.circle(screen, 'dark gray', (400, 35), 30, 3)
 
     # Load the eraser icon and draw it
-    eraser = pygame.image.load("media/eraser-square-svgrepo-com.svg")
+    eraser = pygame.image.load("lab 9\media\eraser-square-svgrepo-com.svg")
     eraser_rect = eraser.get_rect(topleft=(WIDTH - 150, 7))
     eraser_rect.width = eraser_rect.height = 25
     screen.blit(eraser, [WIDTH - 150, 7, 25, 25])

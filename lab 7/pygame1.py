@@ -2,16 +2,16 @@ import pygame
 import time
 pygame.init()
 
-window_size = (829,836)
+window_size = (829,700)
 window = pygame.display.set_mode(window_size)
 pygame.display.set_caption("Mickey Mouse Clock")
 clock = pygame.time.Clock()
-mickey = pygame.image.load("lab7\clock\main-clock.png")
+mickey = pygame.image.load("lab 7\media\main-clock.png")
 
 
 
-minute_hand = pygame.image.load("lab7\clock\ighthand.png")
-second_hand = pygame.image.load("lab7\clock\lefthand.png")
+minute_hand = pygame.image.load("lab 7\\media\\ighthand.png")
+second_hand = pygame.image.load("lab 7\\media\\lefthand.png")
 
 
 minute_hand_pos = (window_size[0] // 2, window_size[1] // 2)

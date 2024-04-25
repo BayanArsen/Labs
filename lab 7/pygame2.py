@@ -1,36 +1,51 @@
 import pygame
-pygame.init()
 
-clock_time = pygame.time.Clock()
-width = 400
-length = 500
-radius = 25
-surface = pygame.display.set_mode((width , length))
+pygame.init()
+pygame.mixer.init()
+
+screen = pygame.display.set_mode((500, 500))
+songs = ["lab 7\\media\\1.mp3", "lab 7\\media\\2.mp3", "lab 7\\media\\3.mp3"]
+i = 0
+current = songs[i]
+pygame.mixer.music.load(current)
+pygame.mixer.music.play()
+pygame.mixer.music.pause()
 
 running = True
-color = (255, 0, 0)
-x = width / 2
-y = length / 2
+
+
+def playNext():
+    global current, songs, i
+    next = (i + 1) % len(songs)
+    current = songs[next]
+    pygame.mixer.music.load(current)
+    pygame.mixer.music.play()
+    i = next
+
+
+def playPrevious():
+    global current, songs, i
+    previous = (i - 1) % len(songs)
+    current = songs[previous]
+    pygame.mixer.music.load(current)
+    pygame.mixer.music.play()
+    i = previous
+
+
 while running:
+    pygame.display.update()
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            color = (255, 0, 0)
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_g:
-            color = (0, 255, 0)
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_b:
-            color = (0, 0, 255)
-
-    pressed = pygame.key.get_pressed()
-    if pressed[pygame.K_UP]  and y >= radius: y-= 20
-    if pressed[pygame.K_DOWN] and y <= length - radius: y+=20
-    if pressed[pygame.K_LEFT] and x >= radius : x-=20
-    if pressed[pygame.K_RIGHT] and x <= width - radius : x+=20
-
-
-    surface.fill((255, 255, 255))
-    pygame.draw.circle(surface, color, (x, y), radius)
-
-    pygame.display.flip()
-    clock_time.tick(60)
+            pygame.quit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                if pygame.mixer.music.get_busy():
+                    pygame.mixer.music.pause()
+                else:
+                    pygame.mixer.music.unpause()
+            elif event.key == pygame.K_RIGHT:
+                playNext()
+            elif event.key == pygame.K_LEFT:
+                playPrevious()
