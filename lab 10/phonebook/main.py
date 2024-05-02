@@ -1,102 +1,97 @@
 import psycopg2
 import csv
 
-def create_tables():
-    """Создание таблиц в базе данных PostgreSQL."""
-    commands = (
-        """
-        CREATE TABLE IF NOT EXISTS phonebook (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(32) NOT NULL,
-            last_name VARCHAR(32) NOT NULL,
-            phone_number VARCHAR(11) NOT NULL
-        )
-        """,
+yourpassword = 'kazbek'  # Ensure to secure your password appropriately
+
+def insert_from_csv(file_path):
+    conn = psycopg2.connect(f"dbname=dev user=postgres password={yourpassword}")
+    cur = conn.cursor()
+    with open(file_path, 'r') as f:
+        reader = csv.reader(f)
+        next(reader)  # Skip the header row
+        for row in reader:
+            cur.execute(
+                "INSERT INTO phonebook (first_name, last_name, phone) VALUES (%s, %s, %s)",
+                row
+            )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def insert_via_console():
+    conn = psycopg2.connect(f"dbname=dev user=postgres password={yourpassword}")
+    cur = conn.cursor()
+    first_name = input("Enter first name: ")
+    last_name = input("Enter last name: ")
+    phone = input("Enter phone number: ")
+    cur.execute(
+        "INSERT INTO phonebook (first_name, last_name, phone) VALUES (%s, %s, %s)",
+        (first_name, last_name, phone)
     )
-    try:
-        with psycopg2.connect(host="localhost", database="postgres", user="postgres", password="12345") as conn:
-            with conn.cursor() as cur:
-                for command in commands:
-                    cur.execute(command)
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
+    conn.commit()
+    cur.close()
+    conn.close()
 
-def insert_data():
-    """Вставка данных в таблицу."""
-    data = (input("Введите имя: "), input("Введите фамилию: "), input("Введите номер телефона: "))
-    command = """
-        INSERT INTO phonebook(name, last_name, phone_number) 
-        VALUES(%s, %s, %s)
-        """
-    try:
-        with psycopg2.connect(host="localhost", database="postgres", user="postgres", password="12345") as conn:
-            with conn.cursor() as cur:
-                cur.execute(command, data)
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
+def update_phonebook(first_name, new_phone):
+    conn = psycopg2.connect(f"dbname=dev user=postgres password={yourpassword}")
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE phonebook SET phone = %s WHERE first_name = %s",
+        (new_phone, first_name)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
-def from_csv():
-    command = """
-        INSERT INTO phonebook(name, last_name, phone_number) 
-        VALUES(%s, %s, %s)
-        """
-    try:
-        with psycopg2.connect(host="localhost", database="postgres", user="postgres", password="12345") as conn:
-            with conn.cursor() as cur:
-                with open('numbers.csv', 'r', newline='') as file:
-                    rows = csv.reader(file)
-                    
-                    for data in rows:
-                        with conn.cursor() as cur:
-                            cur.execute(command, (data[0], data[1], data[2]))
+def query_phonebook(first_name):
+    conn = psycopg2.connect(f"dbname=dev user=postgres password={yourpassword}")
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM phonebook WHERE first_name = %s", (first_name,))
+    rows = cur.fetchall()
+    for row in rows:
+        print(row)
+    cur.close()
+    conn.close()
 
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
+def delete_from_phonebook(by, value):
+    conn = psycopg2.connect(f"dbname=dev user=postgres password={yourpassword}")
+    cur = conn.cursor()
+    cur.execute(f"DELETE FROM phonebook WHERE {by} = %s", (value,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def main():
+    while True:
+        print("\nPhoneBook Application")
+        print("1. Insert from CSV")
+        print("2. Insert via console")
+        print("3. Update phone number")
+        print("4. Query by first name")
+        print("5. Delete record")
+        print("6. Exit")
+        choice = input("Choose an option: ")
         
-def delete_data():
-    """Удаление данных из таблицы на основе имени."""
-    name = input("Введите имя: ")
-    
-    command = """
-        DELETE FROM phonebook 
-        WHERE name = %s;
-        """
-    try:
-        with psycopg2.connect(host="localhost", database="postgres", user="postgres", password="12345") as conn:
-            with conn.cursor() as cur:
-                cur.execute(command, (name,))
-                print(f"Удалено записей: {cur.rowcount}")
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
+        if choice == '1':
+            file_path = input("Enter CSV file path: ")
+            insert_from_csv(file_path)
+        elif choice == '2':
+            insert_via_console()
+        elif choice == '3':
+            first_name = input("Enter the first name of the person to update: ")
+            new_phone = input("Enter the new phone number: ")
+            update_phonebook(first_name, new_phone)
+        elif choice == '4':
+            first_name = input("Enter the first name to query: ")
+            query_phonebook(first_name)
+        elif choice == '5':
+            by = input("Delete by 'first_name' or 'phone'? ")
+            value = input("Enter the value: ")
+            delete_from_phonebook(by, value)
+        elif choice == '6':
+            break
+        else:
+            print("Invalid option, please try again.")
 
-def check_data(id: bool):
-    """Удаление данных из таблицы на основе имени."""
-    if id:
-        command = """
-            SELECT id, name, last_name, phone_number FROM phonebook ORDER BY id;
-        """
-    else:
-        command = """
-            SELECT id, name, last_name, phone_number FROM phonebook ORDER BY name;
-        """
-    try:
-        with psycopg2.connect(host="localhost", database="postgres", user="postgres", password="12345") as conn:
-            with conn.cursor() as cur:
-                cur.execute(command)
-                print("-----------------------------------------------------")
-                for data in cur.fetchall():
-                    print(f"| {data[0]} | {data[1]} | {data[2]} | {data[3]} |")
-                
-                print(f"Удалено записей: {cur.rowcount}")
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
-
-
-if __name__ == '__main__':
-    create_tables()
-    insert_data()
-    from_csv()
-    delete_data()
-    check_data(True)
-    
-    
+if __name__ == "__main__":
+    main()
